@@ -1,0 +1,8 @@
+name = EEC field tokens raw
+description = Adds to the token fields the raw value, handy for creative panel panes configuration depending on raw values of a field.
+package = EEC Custom
+core = 7.x
+
+files[] = eec_feld_tokens_raw.module
+
+dependencies[] = token

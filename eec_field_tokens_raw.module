@@ -1,0 +1,66 @@
+<?php
+
+/**
+ * Implements hook_token_info_alter().
+ * @param $data
+ */
+function eec_field_tokens_raw_token_info_alter(&$data) {
+  $token_info = _token_field_info();
+
+  foreach ($token_info as $field_name => $info) {
+    $field = field_info_field($field_name);
+    foreach ($info['token types'] as $token_type) {
+      if (isset($data['tokens'][$token_type])) {
+        // Field property tokens.
+        $data['tokens'][$token_type]["{$field_name}-raw"] = array(
+          'name'        => t('@label: Value raw', array('@label' => $info['label'])),
+          'description' => t('Field value from one or more @label field values.', array('@label' => $info['label'])),
+          'type'        => 'field_raw',
+          'dynamic'     => TRUE,
+        );
+      }
+    }
+  }
+}
+
+
+/**
+ * Implements hook_tokens().
+ */
+function eec_field_tokens_raw_tokens($type, $tokens, array $data = array(), array $options = array()) {
+  $replacements = array();
+
+  // Entity tokens.
+  if ($type == 'entity' && !empty($data['entity_type']) && !empty($data['entity']) && !empty($data['token_type'])) {
+    $entity_type = $data['entity_type'];
+
+    // The field API does weird stuff to the entity, so let's clone it.
+    $entity = clone $data['entity'];
+
+    // Reset the prepared view flag in case token generation is called from
+    // inside field_attach_view().
+    unset($entity->_field_view_prepared);
+
+    list(, , $bundle) = entity_extract_ids($entity_type, $entity);
+    $fields = field_info_instances($entity_type, $bundle);
+
+    foreach (array_keys($fields) as $field_name) {
+      // Do not continue if the field is empty.
+      if (empty($entity->{$field_name})) {
+        continue;
+      }
+
+      // Replace the [entity:field-name] token only if token module added this
+      // token.
+      if (isset($tokens["{$field_name}-raw"]) && _token_module($data['token_type'], "{$field_name}") == 'token' && !empty($entity->{$field_name}['und'][0]['value'])) {
+        $original = $tokens["{$field_name}-raw"];
+        $replacements[$original] = $entity->{$field_name}['und'][0]['value'];
+      }
+    }
+
+    // Remove the cloned object from memory.
+    unset($entity);
+  }
+
+  return $replacements;
+}
